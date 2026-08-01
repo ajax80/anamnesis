@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Nightly memory maintenance.
+#   anamnesis-maint            -> run full maintenance now
+#   anamnesis-maint --maybe    -> run only if >20h since last run (for SessionStart hook)
+# Writes a short report to $ANAMNESIS_DIR/_maint.md (synced across the fleet).
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+ENGINE="$SELF/engine"
+for cfg in "${ANAMNESIS_ENV:-}" "$HOME/.config/anamnesis/anamnesis.env" "$SELF/anamnesis.env"; do
+  [ -n "$cfg" ] && [ -f "$cfg" ] && . "$cfg" && break
+done
+
+export ANAMNESIS_DIR="${ANAMNESIS_DIR:-$HOME/.anamnesis}"
+MEM="$ANAMNESIS_DIR"
+NODE="${ANAMNESIS_NODE:-$(hostname)}"
+INDEX_NODE="${ANAMNESIS_INDEX_NODE:-}"
+BRANCH="${ANAMNESIS_HUB_BRANCH:-main}"
+CORE_CAP="${ANAMNESIS_CORE_CAP:-12288}"
+GEN_URL="${ANAMNESIS_OLLAMA_GEN_URL:-http://localhost:11434/api/generate}"
+GEN_MODEL="${ANAMNESIS_CHANGELOG_MODEL:-llama3.1:8b}"
+STAMP="${XDG_STATE_HOME:-$HOME/.local/state}/anamnesis/maint-stamp"
+REPORT="$MEM/_maint.md"
+SYNC="$SELF/bin/anamnesis-sync"
+
+cd "$MEM" 2>/dev/null || exit 0
+mkdir -p "$(dirname "$STAMP")"
+
+# --maybe: skip if run within the last 20h
+if [ "${1:-}" = "--maybe" ] && [ -f "$STAMP" ]; then
+  age=$(( $(date +%s) - $(stat -c %Y "$STAMP" 2>/dev/null || echo 0) ))
+  [ "$age" -lt 72000 ] && exit 0
+fi
+touch "$STAMP"
+
+# Pull latest so we audit the merged fleet state
+[ -x "$SYNC" ] && "$SYNC" pull >/dev/null 2>&1
+
+warn=(); note=()
+
+# 1. CORE size watch
+set -- $(wc -l -c MEMORY.md 2>/dev/null); bytes="${2:-0}"
+[ "$bytes" -gt "$CORE_CAP" ] && warn+=("MEMORY.md CORE is ${bytes} bytes — trim toward <8KB (${CORE_CAP}B soft cap).")
+
+# 2. Regenerate derived INDEX.md + re-embed (only on the designated index node, if set)
+if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ]; then
+  giwarn="$(PYTHONPATH="$ENGINE" python3 "$ENGINE/genindex.py" 2>&1 >/dev/null)"
+  gicount="$(printf '%s\n' "$giwarn" | grep -c 'WARN')"
+  [ "$gicount" -gt 0 ] && note+=("INDEX.md: ${gicount} file(s) with weak/missing frontmatter (genindex lint).")
+  if [ -d .git ]; then
+    git add INDEX.md 2>/dev/null || true
+    git diff --cached --quiet INDEX.md 2>/dev/null || git commit -q -m "chore: regenerate INDEX.md" || true
+  fi
+  reidx="$(PYTHONPATH="$ENGINE" python3 "$ENGINE/indexer.py" 2>/dev/null)"
+  note+=("mem-index: ${reidx#*re-embedded }")
+fi
+
+# 3. Unwritten [[links]] (informational)
+deadlinks=()
+dl="$(grep -rhoE '\[\[[a-zA-Z0-9_-]+\]\]' *.md 2>/dev/null | sed -E 's/\[\[(.*)\]\]/\1/' | sort -u)"
+for s in $dl; do [ -f "$s.md" ] || deadlinks+=("$s"); done
+if [ "${#deadlinks[@]}" -gt 0 ]; then
+  deadlinks=("${deadlinks[@]:0:12}")
+  note+=("${#deadlinks[@]} unwritten link target(s) (todo candidates): ${deadlinks[*]}")
+fi
+
+# 4. Stale NOW pointer
+nowf="NOW.$NODE.md"
+if [ -f "$nowf" ]; then
+  nowdate="$(grep -oE '202[0-9]-[0-1][0-9]-[0-3][0-9]' "$nowf" | head -1)"
+  if [ -n "$nowdate" ]; then
+    days=$(( ( $(date +%s) - $(date -d "$nowdate" +%s 2>/dev/null || echo 0) ) / 86400 ))
+    [ "$days" -gt 4 ] && warn+=("$nowf last dated $nowdate (${days}d ago) — rewrite the live-state pointer.")
+  fi
+fi
+
+# 5. Overnight changelog via local LLM (optional; degrades to a file list)
+changed="$(git log --since='26 hours ago' --pretty=format:'%s' -- '*.md' 2>/dev/null | grep -v '^sync ' | head -40)"
+filestat="$(git log --since='26 hours ago' --name-only --pretty=format: -- '*.md' 2>/dev/null | grep -E '\.md$' | sort -u | head -40)"
+summary=""
+if [ -n "$filestat" ] && command -v jq >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+  prompt="These memory files changed in the last day on a personal knowledge base:
+$filestat
+
+Commit subjects:
+$changed
+
+Write exactly 3 short bullet lines summarizing what changed overnight, plain and concrete. No preamble."
+  payload="$(jq -n --arg m "$GEN_MODEL" --arg p "$prompt" \
+    '{model:$m, prompt:$p, stream:false, options:{temperature:0.2, num_predict:160}}')"
+  summary="$(curl -s -m 60 "$GEN_URL" -d "$payload" 2>/dev/null | jq -r '.response // empty' 2>/dev/null | sed '/^$/d')"
+fi
+[ -z "$summary" ] && summary="$( [ -n "$filestat" ] && printf '%s\n' "$filestat" | sed 's/^/- touched /' || echo '- no memory changes in the last day' )"
+
+# write report
+{
+  echo "# Overnight maintenance — $(date '+%F %H:%M') ($NODE)"
+  echo
+  echo "**Changed:**"
+  printf '%s\n' "$summary"
+  echo
+  if [ "${#warn[@]}" -gt 0 ]; then
+    echo "**⚠ Needs attention:**"; printf -- '- %s\n' "${warn[@]}"; echo
+  else
+    echo "**✓ Clean** — CORE ${bytes:-?} bytes; INDEX.md auto-derived."; echo
+  fi
+  if [ "${#note[@]}" -gt 0 ]; then
+    echo "**Notes:**"; printf -- '- %s\n' "${note[@]}"
+  fi
+} > "$REPORT"
+
+# Push report + any hub merges back to the fleet
+[ -x "$SYNC" ] && "$SYNC" >/dev/null 2>&1
+exit 0

@@ -1,0 +1,15 @@
+# Node-local embedding cache — never synced, always rebuildable
+.index/
+*.db
+
+# Local config (may contain host/remote specifics)
+anamnesis.env
+.config/
+
+python __pycache__
+__pycache__/
+*.pyc
+
+# Never commit real memory data into the engine repo
+/memory/
+*.local.md

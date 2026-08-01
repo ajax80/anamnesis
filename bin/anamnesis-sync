@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Fleet memory sync over a shared git remote.
+#   anamnesis-sync pull   -> fetch+rebase only (fast; used at session start)
+#   anamnesis-sync        -> full two-way sync (pull, then commit+push local changes)
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+for cfg in "${ANAMNESIS_ENV:-}" "$HOME/.config/anamnesis/anamnesis.env" "$SELF/anamnesis.env"; do
+  [ -n "$cfg" ] && [ -f "$cfg" ] && . "$cfg" && break
+done
+MEM="${ANAMNESIS_DIR:-$HOME/.anamnesis}"
+NODE="${ANAMNESIS_NODE:-$(hostname)}"
+BRANCH="${ANAMNESIS_HUB_BRANCH:-main}"
+
+cd "$MEM" 2>/dev/null || exit 0
+[ -d .git ] || exit 0                       # not a repo on this node yet -> no-op
+[ -n "${ANAMNESIS_HUB_REMOTE:-}" ] || git remote get-url origin >/dev/null 2>&1 || exit 0
+
+git pull --rebase --autostash -q origin "$BRANCH" 2>/dev/null || exit 0
+
+[ "${1:-}" = "pull" ] && exit 0
+
+if [ -n "$(git status --porcelain)" ]; then
+  git add -A
+  git commit -qm "sync ${NODE} $(date '+%F %T')" 2>/dev/null
+  git push -q origin "$BRANCH" 2>/dev/null || true
+fi

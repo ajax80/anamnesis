@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Anamnesis — plain-text, git-native long-term memory for AI agents.
+# Single entry point: search | index | genindex | sync | maint | config | help
+set -uo pipefail
+
+SELF="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+ENGINE="$SELF/engine"
+
+# Load config from the first file that exists (explicit env wins).
+for cfg in "${ANAMNESIS_ENV:-}" "$HOME/.config/anamnesis/anamnesis.env" "$SELF/anamnesis.env"; do
+  [ -n "$cfg" ] && [ -f "$cfg" ] && . "$cfg" && break
+done
+
+export ANAMNESIS_DIR="${ANAMNESIS_DIR:-$HOME/.anamnesis}"
+export ANAMNESIS_NODE="${ANAMNESIS_NODE:-$(hostname)}"
+export ANAMNESIS_OLLAMA_URL="${ANAMNESIS_OLLAMA_URL:-http://localhost:11434/api/embeddings}"
+export ANAMNESIS_EMBED_MODEL="${ANAMNESIS_EMBED_MODEL:-nomic-embed-text}"
+
+pyrun() { exec env PYTHONPATH="$ENGINE" python3 "$ENGINE/$1" "${@:2}"; }
+
+cmd="${1:-help}"; shift 2>/dev/null || true
+case "$cmd" in
+  search)   pyrun search.py "$@" ;;
+  index)    pyrun indexer.py "$@" ;;
+  genindex) pyrun genindex.py "$@" ;;
+  sync)     exec "$SELF/bin/anamnesis-sync" "$@" ;;
+  maint)    exec "$SELF/bin/anamnesis-maint" "$@" ;;
+  config)   printf 'ANAMNESIS_DIR=%s\nANAMNESIS_NODE=%s\nANAMNESIS_INDEX_NODE=%s\nANAMNESIS_HUB_REMOTE=%s\nANAMNESIS_EMBED_MODEL=%s\n' \
+              "$ANAMNESIS_DIR" "$ANAMNESIS_NODE" "${ANAMNESIS_INDEX_NODE:-}" "${ANAMNESIS_HUB_REMOTE:-}" "$ANAMNESIS_EMBED_MODEL" ;;
+  help|-h|--help)
+    cat <<EOF
+anamnesis — plain-text long-term memory for AI agents
+
+  anamnesis search "<query>" [--top N]   semantic recall (falls back to grep)
+  anamnesis index [--rebuild]            (re)embed changed memory files
+  anamnesis genindex                     regenerate INDEX.md from frontmatter
+  anamnesis sync [pull]                  two-way fleet sync ('pull' = fetch only)
+  anamnesis maint [--maybe]              nightly self-audit + changelog
+  anamnesis config                       show resolved configuration
+
+Data dir: \$ANAMNESIS_DIR ($ANAMNESIS_DIR)
+Config:   \$ANAMNESIS_ENV | ~/.config/anamnesis/anamnesis.env | ./anamnesis.env
+EOF
+    ;;
+  *) echo "anamnesis: unknown command '$cmd' (try: anamnesis help)" >&2; exit 2 ;;
+esac

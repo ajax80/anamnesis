@@ -1,0 +1,4 @@
+# Tiers 1-2 (format parse + index):
+pyyaml>=6.0
+# Tier 3 (semantic search):
+numpy>=1.24
