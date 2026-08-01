@@ -60,6 +60,22 @@ Embeddings (`.index/`) are node-local and gitignored — each node rebuilds its
 own cache; only the source `.md` files sync. One node can be designated to
 regenerate `INDEX.md` (`ANAMNESIS_INDEX_NODE`) to avoid churn.
 
+### Supersession, not decay
+
+The hardest half of a memory system is the write side: deciding what to update,
+retire, or forget. Age-based decay is the wrong tool — it buries the fact stated
+once, early, and never repeated, which is often the one that matters most.
+
+Anamnesis retires facts by **supersession**, applied by a human or a close-out
+pass, never inferred automatically. A `status: superseded | archived` field
+(with an optional `superseded_by` pointer) marks a memory retired. The status is
+enforced at the **retrieval layer**, not by destroying the record: `genindex`
+routes it to an Archive section, `search` hides it unless `--all` is passed, and
+git retains the full history — so a retired fact is *visible and recoverable*,
+never a silent similarity-score winner. Automatic contradiction detection is
+deliberately out of scope; that would reintroduce the unreliable-write failure
+mode this design exists to avoid.
+
 ### Maintenance
 
 `anamnesis maint` (throttled to ~once/20h via `--maybe`) audits the merged

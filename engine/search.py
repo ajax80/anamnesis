@@ -1,5 +1,5 @@
 import os, re, sys, numpy as np
-from mem_common import MEMORY_DIR
+from mem_common import MEMORY_DIR, parse_file, is_active
 from indexer import connect, from_blob, reindex, DB_PATH
 from embed import embed as default_embed
 
@@ -10,7 +10,7 @@ def _terms(q):
     return [t for t in re.split(r"\s+", q.lower()) if t]
 
 
-def search(query, top=5, con=None, embed_fn=default_embed, memdir=MEMORY_DIR):
+def search(query, top=5, con=None, embed_fn=default_embed, memdir=MEMORY_DIR, include_archived=False):
     con = con or connect()
     rows = con.execute("SELECT path,name,type,description,embedding FROM mem").fetchall()
     if not rows:
@@ -22,15 +22,17 @@ def search(query, top=5, con=None, embed_fn=default_embed, memdir=MEMORY_DIR):
     sims = Mn @ qn
     order = np.argsort(-sims)
     terms = _terms(query)
-    cand = order[: max(top * 4, 20)]
+    cand = order[: max(top * 6, 30)]
     scored = []
     for i in cand:
         path, name, typ, desc, _ = rows[i]
+        rec = parse_file(path) if os.path.exists(path) else None
+        if rec is not None and not include_archived and not is_active(rec):
+            continue                          # superseded/archived: hidden from default recall
         score = float(sims[i])
         hay = f"{name} {desc}".lower()
-        if os.path.exists(path):
-            try: hay += " " + open(path, encoding="utf-8").read().lower()
-            except OSError: pass
+        if rec is not None:
+            hay += " " + rec["body"].lower()
         if any(t in hay for t in terms):
             score += BOOST
         scored.append((score, name, typ, desc, path))
@@ -38,12 +40,16 @@ def search(query, top=5, con=None, embed_fn=default_embed, memdir=MEMORY_DIR):
     return scored[:top]
 
 
-def grep_fallback(query, top=5, memdir=MEMORY_DIR):
+def grep_fallback(query, top=5, memdir=MEMORY_DIR, include_archived=False):
     index = os.path.join(memdir, "INDEX.md")
     terms = _terms(query)
-    hits = []
+    hits, in_archive = [], False
     if os.path.exists(index):
         for line in open(index, encoding="utf-8"):
+            if line.startswith("## Archive"):
+                in_archive = True
+            if in_archive and not include_archived:
+                continue
             low = line.lower()
             n = sum(1 for t in terms if t in low)
             if n:
@@ -56,16 +62,16 @@ def format_result(score, name, typ, desc, path):
     return f"[{score:.2f}] {name} ({typ})\n       {desc}\n       {path}"
 
 
-def run(query, top=5):
+def run(query, top=5, include_archived=False):
     try:
         con = connect()
         reindex(con)                      # incremental refresh so results are never stale
-        results = search(query, top=top, con=con)
+        results = search(query, top=top, con=con, include_archived=include_archived)
         for r in results:
             print(format_result(*r))
     except Exception as e:                # Ollama down / any embed failure -> grep
         print(f"[anamnesis-search] semantic unavailable ({e}); grep fallback over INDEX.md:", file=sys.stderr)
-        for n, line in grep_fallback(query, top=top):
+        for n, line in grep_fallback(query, top=top, include_archived=include_archived):
             print(f"[{n}] {line}")
 
 
@@ -73,5 +79,7 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("query"); ap.add_argument("--top", type=int, default=5)
+    ap.add_argument("--all", action="store_true", dest="include_archived",
+                    help="include superseded/archived memories")
     a = ap.parse_args()
-    run(a.query, a.top)
+    run(a.query, a.top, a.include_archived)

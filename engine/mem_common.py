@@ -33,13 +33,23 @@ def parse_file(path):
                 fm = {}
             body = parts[2]
     meta = (fm.get("metadata") or {}) if isinstance(fm, dict) else {}
+    status = (fm.get("status") if isinstance(fm, dict) else None) or "active"
     return {
         "name": fm.get("name") if isinstance(fm, dict) else None,
         "type": meta.get("type"),
         "description": fm.get("description") if isinstance(fm, dict) else None,
+        "status": str(status).strip().lower(),
+        "superseded_by": fm.get("superseded_by") if isinstance(fm, dict) else None,
         "body": body.strip(),
         "raw": text,
     }
+
+
+ARCHIVED = ("superseded", "archived")
+
+
+def is_active(rec):
+    return rec.get("status", "active") not in ARCHIVED
 
 
 def sha256_file(path):

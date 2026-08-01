@@ -24,6 +24,39 @@ Link related memories with [[their-name]].
 - `metadata.type` — the memory's kind (see below). Drives how you write the body.
 - `[[wikilinks]]` — cross-references by `name`. A link to a file that does not
   exist yet is fine; maintenance lists those as "todo candidates."
+- `status` *(optional)* — `active` (default when absent), `superseded`, or
+  `archived`. See Supersession below.
+- `superseded_by` *(optional)* — the `name` of the memory that replaces this one.
+
+## Supersession — retiring a fact without losing it
+
+When a fact stops being true, you have three moves, not two. Deleting loses the
+trail; leaving it lets a stale fact poison recall. The third move is
+**supersession**: mark it, don't erase it.
+
+```markdown
+---
+name: deploy-note-v1
+description: OLD deploy note — replaced by the main-only flow
+status: superseded
+superseded_by: deploy-note
+metadata:
+  type: project
+---
+```
+
+The status lives on **retrieval, not destruction** — the file and its git
+history stay intact:
+
+- `genindex` moves superseded/archived memories out of the main index into a
+  separate **Archive** section (kept for audit, out of default recall).
+- `anamnesis search` **excludes** them by default; `anamnesis search --all`
+  brings them back.
+- `git` is your temporal audit log — the old fact, and when it changed, is one
+  `git log` away.
+- Nothing detects contradictions automatically. **You** (or a close-out pass)
+  set the status; that is deliberate — automatic supersession is just the
+  unreliable-write problem wearing a new hat.
 
 ## Types
 

@@ -55,6 +55,14 @@ if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ]; then
   note+=("mem-index: ${reidx#*re-embedded }")
 fi
 
+# 2b. Supersession audit (count archived; flag dangling superseded_by targets)
+sup="$(grep -lE '^status:[[:space:]]*(superseded|archived)' *.md 2>/dev/null | wc -l)"
+[ "$sup" -gt 0 ] && note+=("${sup} superseded/archived memory file(s) — excluded from default recall (use \`anamnesis search --all\`).")
+for f in $(grep -lE '^superseded_by:' *.md 2>/dev/null); do
+  tgt="$(grep -m1 '^superseded_by:' "$f" | sed -E 's/^superseded_by:[[:space:]]*//; s/[][`" '"'"']//g')"
+  [ -n "$tgt" ] && [ ! -f "$tgt.md" ] && warn+=("$f: superseded_by '$tgt' but $tgt.md is missing.")
+done
+
 # 3. Unwritten [[links]] (informational)
 deadlinks=()
 dl="$(grep -rhoE '\[\[[a-zA-Z0-9_-]+\]\]' *.md 2>/dev/null | sed -E 's/\[\[(.*)\]\]/\1/' | sort -u)"

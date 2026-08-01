@@ -47,6 +47,15 @@ Plus a **live-state pointer** (`NOW.<node>.md`) injected at every session start,
 optional **fleet sync** over a git remote, and a nightly **self-audit**. See
 [`docs/DESIGN.md`](docs/DESIGN.md) and [`docs/FORMAT.md`](docs/FORMAT.md).
 
+**Retiring a fact — supersession, not decay.** When something stops being true,
+set `status: superseded` (with an optional `superseded_by:`) in its frontmatter.
+It drops out of the index and default search into an audit-only Archive, but the
+file and its git history stay — a retired fact stays *visible and recoverable*
+instead of silently winning a similarity score. `anamnesis search --all` brings
+archived memories back. Nothing is inferred automatically; you (or a close-out
+pass) decide — deliberately, because auto-detecting "this is stale now" is just
+the unreliable-write problem in disguise.
+
 A memory is one fact in one file:
 
 ```markdown
