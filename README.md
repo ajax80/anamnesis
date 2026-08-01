@@ -1,8 +1,20 @@
-# Anamnesis
+<p align="center">
+  <img src="assets/anamnesis.jpg" alt="Anamnesis" width="640">
+</p>
 
-**Plain-text, git-native long-term memory for AI agents.** Your memories, your
-machine, your rules — no cloud, no closed engine, no blob that reads everything
-you own.
+<p align="center">
+  <b>Plain-text, git-native long-term memory for AI agents.</b><br>
+  Your memories, your machine, your rules — no cloud, no closed engine,<br>
+  no blob that reads everything you own.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/deps-bash%20%C2%B7%20git%20%C2%B7%20python-lightgrey.svg" alt="deps">
+  <img src="https://img.shields.io/badge/semantic-Ollama%20nomic--embed--text-black.svg" alt="semantic">
+</p>
+
+---
 
 > *anamnesis* (ἀνάμνησις) — recollection; the remembering that makes the past
 > present.
@@ -12,6 +24,10 @@ gives it a durable, human-readable memory that lives in a directory **you**
 control, under git, and that you can read, grep, and edit by hand. The engine is
 small and auditable. Every layer is optional: run the whole thing with nothing
 but `grep`, and add semantic search only if you want it.
+
+<p align="center">
+  <img src="assets/demo.svg" alt="anamnesis search demo" width="720">
+</p>
 
 ## The hard line
 
