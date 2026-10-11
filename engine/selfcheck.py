@@ -1,5 +1,5 @@
 import os, re, sys
-from mem_common import MEMORY_DIR, memory_files, parse_file, sha256_file
+from mem_common import MEMORY_DIR, memory_files, parse_file, sha256_file, is_active
 from indexer import connect
 
 
@@ -18,7 +18,7 @@ def check(memdir=MEMORY_DIR, node=None):
         warn.append(f"embeddings stale/missing for {len(stale)} file(s) — indexer not running or embed backend down.")
     try:
         from search import search
-        probe = next((p for p in files if (parse_file(p)["description"] or "").strip()), None)
+        probe = next((p for p in files if is_active(parse_file(p)) and (parse_file(p)["description"] or "").strip()), None)
         if probe:
             rec = parse_file(probe)
             hits = [h[4] for h in search(rec["description"], top=3, con=con)]

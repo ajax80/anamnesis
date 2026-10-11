@@ -37,29 +37,31 @@ def bm25_rank(query, docs, k1=1.5, b=0.75):
 
 def search(query, top=5, con=None, embed_fn=default_embed, memdir=MEMORY_DIR, include_archived=False):
     con = con or connect()
-    rows = con.execute("SELECT path,name,type,description,embedding FROM mem").fetchall()
-    if not rows:
-        return []
-    q = np.asarray(embed_fn(query), dtype=np.float32)
-    M = np.stack([from_blob(r[4]) for r in rows])
-    qn = q / (np.linalg.norm(q) + 1e-9)
-    Mn = M / (np.linalg.norm(M, axis=1, keepdims=True) + 1e-9)
-    sims = Mn @ qn
+    rows = {r[0]: r for r in con.execute("SELECT path,name,type,description,embedding FROM mem")}
     meta, docs = {}, {}
-    for r in rows:
-        path = r[0]
-        rec = parse_file(path) if os.path.exists(path) else None
-        if rec is None or (not include_archived and not is_active(rec)):
+    for path in memory_files(memdir):
+        rec = parse_file(path)
+        if not include_archived and not is_active(rec):
             continue                          # superseded/archived: hidden from default recall
-        meta[path] = (rec["name"] or r[1], rec["type"], rec["description"] or r[3])
-        docs[path] = f"{r[1]} {r[1]} {r[3] or ''} {rec['body']}"
-    vec_order = [rows[i][0] for i in np.argsort(-sims) if rows[i][0] in meta]
+        meta[path] = (rec["name"] or os.path.basename(path)[:-3], rec["type"], rec["description"] or "")
+        docs[path] = f"{meta[path][0]} {meta[path][0]} {meta[path][2]} {rec['body']}"
+    rankings = [bm25_rank(query, docs)]
+    emb = [p for p in meta if p in rows]
+    if emb:
+        try:
+            q = np.asarray(embed_fn(query), dtype=np.float32)
+        except Exception as e:
+            print(f"[anamnesis-search] semantic unavailable ({e}); keyword ranking only", file=sys.stderr)
+        else:
+            M = np.stack([from_blob(rows[p][4]) for p in emb])
+            sims = (M / (np.linalg.norm(M, axis=1, keepdims=True) + 1e-9)) @ (q / (np.linalg.norm(q) + 1e-9))
+            rankings.append([emb[i] for i in np.argsort(-sims)])
     fused = {}
-    for ranking in (vec_order, bm25_rank(query, docs)):
+    for ranking in rankings:
         for rank, path in enumerate(ranking):
             fused[path] = fused.get(path, 0.0) + 1.0 / (RRF_K + rank + 1)
     best = sorted(fused, key=fused.get, reverse=True)[:top]
-    return [(fused[p] * RRF_K / 2, *meta[p], p) for p in best]
+    return [(fused[p] * RRF_K / len(rankings), *meta[p], p) for p in best]
 
 
 def linked(path, memdir=MEMORY_DIR):

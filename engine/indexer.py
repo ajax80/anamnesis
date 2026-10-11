@@ -35,8 +35,8 @@ def reindex(con, memdir=MEMORY_DIR, embed_fn=default_embed, rebuild=False):
         try:
             vec = embed_fn(payload)
         except Exception as e:
-            print(f"[anamnesis-index] skip {os.path.basename(path)}: {e}", file=sys.stderr)
-            continue
+            print(f"[anamnesis-index] embed backend unavailable ({e}); embeddings not updated", file=sys.stderr)
+            break
         con.execute("INSERT OR REPLACE INTO mem VALUES (?,?,?,?,?,?)",
                     (path, rec["name"], rec["type"], rec["description"], sha, to_blob(vec)))
         changed += 1
