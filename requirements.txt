@@ -1,4 +1,4 @@
-# Tiers 1-2 (format parse + index):
+# Core (format parse, index, keyword search):
 pyyaml>=6.0
-# Tier 3 (semantic search):
+# Vector math for search ranking:
 numpy>=1.24

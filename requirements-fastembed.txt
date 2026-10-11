@@ -1,0 +1,3 @@
+# Optional: in-process Tier 3 embeddings, no daemon (ANAMNESIS_EMBED_BACKEND=fastembed).
+# Downloads nomic-embed-text-v1.5 (~520MB ONNX) on first use.
+fastembed>=0.3

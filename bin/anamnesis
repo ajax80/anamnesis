@@ -36,7 +36,7 @@ case "$cmd" in
     cat <<EOF
 anamnesis — plain-text long-term memory for AI agents
 
-  anamnesis search "<query>" [--top N]   semantic recall (falls back to grep)
+  anamnesis search "<query>" [--top N] [--links] [--all]   hybrid keyword+semantic recall
   anamnesis index [--rebuild]            (re)embed changed memory files
   anamnesis genindex                     regenerate INDEX.md from frontmatter
   anamnesis sync [pull]                  two-way fleet sync ('pull' = fetch only)

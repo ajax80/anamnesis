@@ -31,8 +31,8 @@ $ANAMNESIS_DIR/                 ← your data (private, git-tracked, yours)
 └── .index/mem.db               Tier 3: disposable embedding cache (gitignored)
 
 anamnesis (this repo)           ← the engine
-├── bin/anamnesis               dispatcher: search|index|genindex|sync|maint
-├── engine/*.py                 format parse, embed, index, search, genindex
+├── bin/anamnesis               dispatcher: search|index|genindex|retire|check|sync|maint
+├── engine/*.py                 format parse, embed, index, search, genindex, retire, selfcheck
 └── hooks/                      SessionStart wiring for Claude Code
 ```
 
@@ -41,10 +41,12 @@ anamnesis (this repo)           ← the engine
 1. **CORE** — always in context (the SessionStart hook prints it). Free.
 2. **INDEX** — one line per memory, regenerated from frontmatter. `grep` covers
    everything with no model in the loop.
-3. **Semantic** — `nomic-embed-text` (via Ollama) over each memory's
-   Title+Type+Description+body. Cosine similarity, with a keyword boost so exact
-   term matches float up. Incremental: only changed files (by SHA) re-embed.
-   If the embed backend is down, search degrades to grep over INDEX.
+3. **Search** — two rankings fused with Reciprocal Rank Fusion: BM25 over
+   name+description+body (exact identifiers, flags, error strings) and cosine
+   similarity of `nomic-embed-text` embeddings of Title+Type+Description+body
+   (meaning). Embeddings come from Ollama or in-process fastembed; incremental —
+   only changed files (by SHA) re-embed. With no backend, search is BM25 alone.
+   `--links` appends each hit's 1-hop `[[linked]]` memories.
 
 ### Live state vs. long-term memory
 
@@ -71,7 +73,7 @@ pass, never inferred automatically. A `status: superseded | archived` field
 (with an optional `superseded_by` pointer) marks a memory retired. The status is
 enforced at the **retrieval layer**, not by destroying the record: `genindex`
 routes it to an Archive section, `search` hides it unless `--all` is passed, and
-git retains the full history — so a retired fact is *visible and recoverable*,
+git retains the full history (`anamnesis retire` writes the fields) — so a retired fact is *visible and recoverable*,
 never a silent similarity-score winner. Automatic contradiction detection is
 deliberately out of scope; that would reintroduce the unreliable-write failure
 mode this design exists to avoid.
@@ -80,14 +82,19 @@ mode this design exists to avoid.
 
 `anamnesis maint` (throttled to ~once/20h via `--maybe`) audits the merged
 state: CORE size, INDEX regeneration, dead `[[link]]` targets, a stale `NOW`
-pointer, and an optional local-LLM changelog of what changed overnight. It
+pointer, a self-check (INDEX coverage, embedding freshness, search smoke test,
+retired terms from `_retired_terms.txt` in present-tense text), site checks from
+`ANAMNESIS_MAINT_EXTRA`, and an optional local-LLM changelog.
+Silent failure is the enemy: a memory system that rots quietly is worse than
+none, so each layer is checked, not assumed. It
 writes `_maint.md`, which surfaces at the next session start.
 
 ## Dependencies
 
-- **Tiers 1–2:** bash + git + python3 + `pyyaml`. No network, no model.
-- **Tier 3 (semantic):** `numpy` + a running Ollama with `nomic-embed-text`.
-  Pure HTTP; no torch, no GPU.
+- **Core:** bash + git + python3 + `pyyaml` + `numpy`. No network, no model;
+  keyword search works.
+- **Semantic (optional):** Ollama with `nomic-embed-text` (HTTP), or `fastembed`
+  in-process (`ANAMNESIS_EMBED_BACKEND=fastembed`). No torch, no GPU.
 - **Changelog (optional):** `jq`, `curl`, any Ollama chat model.
 
 Every heavier layer degrades cleanly to a lighter one.
