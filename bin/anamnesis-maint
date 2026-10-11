@@ -17,6 +17,8 @@ NODE="${ANAMNESIS_NODE:-$(hostname)}"
 INDEX_NODE="${ANAMNESIS_INDEX_NODE:-}"
 BRANCH="${ANAMNESIS_HUB_BRANCH:-main}"
 CORE_CAP="${ANAMNESIS_CORE_CAP:-12288}"
+export ANAMNESIS_EMBED_BACKEND="${ANAMNESIS_EMBED_BACKEND:-ollama}"
+PY="${ANAMNESIS_PYTHON:-python3}"
 GEN_URL="${ANAMNESIS_OLLAMA_GEN_URL:-http://localhost:11434/api/generate}"
 GEN_MODEL="${ANAMNESIS_CHANGELOG_MODEL:-llama3.1:8b}"
 STAMP="${XDG_STATE_HOME:-$HOME/.local/state}/anamnesis/maint-stamp"
@@ -51,7 +53,7 @@ if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ] || [ "$(hostname)" = "$IN
     git add INDEX.md 2>/dev/null || true
     git diff --cached --quiet INDEX.md 2>/dev/null || git commit -q -m "chore: regenerate INDEX.md" || true
   fi
-  reidx="$(PYTHONPATH="$ENGINE" python3 "$ENGINE/indexer.py" 2>/dev/null)"
+  reidx="$(PYTHONPATH="$ENGINE" "$PY" "$ENGINE/indexer.py" 2>/dev/null)"
   note+=("mem-index: ${reidx#*re-embedded }")
 fi
 

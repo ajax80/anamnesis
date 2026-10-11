@@ -16,7 +16,10 @@ export ANAMNESIS_NODE="${ANAMNESIS_NODE:-$(hostname)}"
 export ANAMNESIS_OLLAMA_URL="${ANAMNESIS_OLLAMA_URL:-http://localhost:11434/api/embeddings}"
 export ANAMNESIS_EMBED_MODEL="${ANAMNESIS_EMBED_MODEL:-nomic-embed-text}"
 
-pyrun() { exec env PYTHONPATH="$ENGINE" python3 "$ENGINE/$1" "${@:2}"; }
+export ANAMNESIS_EMBED_BACKEND="${ANAMNESIS_EMBED_BACKEND:-ollama}"
+PY="${ANAMNESIS_PYTHON:-python3}"
+
+pyrun() { exec env PYTHONPATH="$ENGINE" "$PY" "$ENGINE/$1" "${@:2}"; }
 
 cmd="${1:-help}"; shift 2>/dev/null || true
 case "$cmd" in
