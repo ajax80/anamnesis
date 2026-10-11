@@ -55,6 +55,16 @@ if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ] || [ "$(hostname)" = "$IN
   fi
   reidx="$(PYTHONPATH="$ENGINE" "$PY" "$ENGINE/indexer.py" 2>/dev/null)"
   note+=("mem-index: ${reidx#*re-embedded }")
+  while IFS= read -r l; do
+    case "$l" in WARN\ *) warn+=("${l#WARN }") ;; NOTE\ *) note+=("${l#NOTE }") ;; esac
+  done < <(PYTHONPATH="$ENGINE" "$PY" "$ENGINE/selfcheck.py" "$NODE" 2>&1 | sed '/^WARN \|^NOTE /!s/^/WARN selfcheck: /')
+fi
+
+# 2a. Site-specific checks (ANAMNESIS_MAINT_EXTRA: command printing WARN/NOTE lines)
+if [ -n "${ANAMNESIS_MAINT_EXTRA:-}" ]; then
+  while IFS= read -r l; do
+    case "$l" in WARN\ *) warn+=("${l#WARN }") ;; NOTE\ *) note+=("${l#NOTE }") ;; esac
+  done < <(timeout 120 bash -c "$ANAMNESIS_MAINT_EXTRA" 2>&1)
 fi
 
 # 2b. Supersession audit (count archived; flag dangling superseded_by targets)

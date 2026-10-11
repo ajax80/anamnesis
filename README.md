@@ -82,6 +82,8 @@ python3 -m pip install -r requirements.txt
 
 # Tier 3 (semantic recall): a running Ollama + an embedding model
 ollama pull nomic-embed-text
+# ...or no daemon at all: in-process embeddings via fastembed
+#   pip install fastembed   and set ANAMNESIS_EMBED_BACKEND=fastembed
 
 # Configure
 mkdir -p ~/.config/anamnesis
@@ -105,7 +107,10 @@ cd ~/.anamnesis && git init      # your private memory repo
 
 ```bash
 anamnesis genindex                 # (re)build INDEX.md from frontmatter
-anamnesis search "how do we deploy" # semantic recall (grep fallback if no model)
+anamnesis search "how do we deploy" # hybrid recall: BM25 + semantic, fused (RRF)
+anamnesis search "deploy" --links  # ...plus each hit's 1-hop [[linked]] memories
+anamnesis retire old-runbook --by new-runbook   # supersede (or --archive)
+anamnesis check                    # health: INDEX coverage, fresh embeddings, search smoke test
 anamnesis maint                    # self-audit + changelog -> _maint.md
 anamnesis sync                     # two-way fleet sync (if a hub remote is set)
 anamnesis config                   # show resolved configuration

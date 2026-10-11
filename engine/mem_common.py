@@ -3,12 +3,12 @@ import os, glob, hashlib, yaml
 MEMORY_DIR = os.environ.get(
     "ANAMNESIS_DIR", os.path.expanduser("~/.anamnesis")
 )
-_EXCLUDE_EXACT = {"MEMORY.md", "MEMORY.md.bak", "INDEX.md", "_maint.md"}
+_EXCLUDE_EXACT = {"INDEX.md", "_maint.md"}
 
 
 def is_excluded(path):
     base = os.path.basename(path)
-    if base in _EXCLUDE_EXACT:
+    if base in _EXCLUDE_EXACT or base == "MEMORY.md" or base.startswith("MEMORY.md."):
         return True
     if base.endswith(".md") and (base.startswith("NOW.") or base.startswith("NOW-")):
         return True
@@ -18,6 +18,23 @@ def is_excluded(path):
 def memory_files(memdir=MEMORY_DIR):
     paths = [p for p in glob.glob(os.path.join(memdir, "*.md")) if not is_excluded(p)]
     return sorted(paths, key=lambda p: os.path.basename(p))
+
+
+def _lenient_frontmatter(block):
+    fm, meta = {}, {}
+    for line in block.splitlines():
+        if not line.strip() or ":" not in line:
+            continue
+        key, _, val = line.strip().partition(":")
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"'":
+            val = val[1:-1]
+        if key == "metadata":
+            continue
+        (meta if line.startswith((" ", "\t")) else fm)[key] = val
+    if meta:
+        fm["metadata"] = meta
+    return fm
 
 
 def parse_file(path):
@@ -30,13 +47,13 @@ def parse_file(path):
             try:
                 fm = yaml.safe_load(parts[1]) or {}
             except yaml.YAMLError:
-                fm = {}
+                fm = _lenient_frontmatter(parts[1])
             body = parts[2]
     meta = (fm.get("metadata") or {}) if isinstance(fm, dict) else {}
     status = (fm.get("status") if isinstance(fm, dict) else None) or "active"
     return {
         "name": fm.get("name") if isinstance(fm, dict) else None,
-        "type": meta.get("type"),
+        "type": meta.get("type") or (fm.get("type") if isinstance(fm, dict) else None),
         "description": fm.get("description") if isinstance(fm, dict) else None,
         "status": str(status).strip().lower(),
         "superseded_by": fm.get("superseded_by") if isinstance(fm, dict) else None,

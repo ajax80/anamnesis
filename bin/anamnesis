@@ -26,6 +26,8 @@ case "$cmd" in
   search)   pyrun search.py "$@" ;;
   index)    pyrun indexer.py "$@" ;;
   genindex) pyrun genindex.py "$@" ;;
+  retire)   pyrun retire.py "$@" ;;
+  check)    pyrun selfcheck.py "$ANAMNESIS_NODE" ;;
   sync)     exec "$SELF/bin/anamnesis-sync" "$@" ;;
   maint)    exec "$SELF/bin/anamnesis-maint" "$@" ;;
   config)   printf 'ANAMNESIS_DIR=%s\nANAMNESIS_NODE=%s\nANAMNESIS_INDEX_NODE=%s\nANAMNESIS_HUB_REMOTE=%s\nANAMNESIS_EMBED_MODEL=%s\n' \
@@ -39,6 +41,8 @@ anamnesis — plain-text long-term memory for AI agents
   anamnesis genindex                     regenerate INDEX.md from frontmatter
   anamnesis sync [pull]                  two-way fleet sync ('pull' = fetch only)
   anamnesis maint [--maybe]              nightly self-audit + changelog
+  anamnesis check                        health: INDEX coverage, embeddings fresh, search smoke test, retired terms
+  anamnesis retire <slug> [--by <slug>|--archive]   mark a memory superseded/archived
   anamnesis config                       show resolved configuration
 
 Data dir: \$ANAMNESIS_DIR ($ANAMNESIS_DIR)
