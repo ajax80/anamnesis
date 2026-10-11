@@ -129,7 +129,8 @@ out.
 
 - **Tiers 1–2:** `bash`, `git`, `python3`, `pyyaml`. No network, no model.
 - **Tier 3:** `numpy` + Ollama running `nomic-embed-text`. Pure HTTP — no torch,
-  no GPU.
+  no GPU. Or `ANAMNESIS_EMBED_BACKEND=fastembed` for the same model in-process
+  (ONNX, CPU) with no daemon.
 - **Overnight changelog (optional):** `jq`, `curl`, any local chat model.
 
 Each heavier layer degrades cleanly to a lighter one. Ollama down? Search falls
