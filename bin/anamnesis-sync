@@ -23,5 +23,6 @@ git pull --rebase --autostash -q origin "$BRANCH" 2>/dev/null || exit 0
 if [ -n "$(git status --porcelain)" ]; then
   git add -A
   git commit -qm "sync ${NODE} $(date '+%F %T')" 2>/dev/null
-  git push -q origin "$BRANCH" 2>/dev/null || true
 fi
+# Push whenever ahead, not only after an auto-commit: hand-made commits count too.
+[ -n "$(git log --oneline "origin/$BRANCH..HEAD" 2>/dev/null)" ] && { git push -q origin "$BRANCH" 2>/dev/null || true; }
