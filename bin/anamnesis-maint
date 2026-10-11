@@ -43,7 +43,7 @@ set -- $(wc -l -c MEMORY.md 2>/dev/null); bytes="${2:-0}"
 [ "$bytes" -gt "$CORE_CAP" ] && warn+=("MEMORY.md CORE is ${bytes} bytes — trim toward <8KB (${CORE_CAP}B soft cap).")
 
 # 2. Regenerate derived INDEX.md + re-embed (only on the designated index node, if set)
-if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ]; then
+if [ -z "$INDEX_NODE" ] || [ "$NODE" = "$INDEX_NODE" ] || [ "$(hostname)" = "$INDEX_NODE" ]; then
   giwarn="$(PYTHONPATH="$ENGINE" python3 "$ENGINE/genindex.py" 2>&1 >/dev/null)"
   gicount="$(printf '%s\n' "$giwarn" | grep -c 'WARN')"
   [ "$gicount" -gt 0 ] && note+=("INDEX.md: ${gicount} file(s) with weak/missing frontmatter (genindex lint).")
