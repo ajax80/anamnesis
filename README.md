@@ -42,6 +42,7 @@ remote *you* choose. Keep the machine public; keep the diary private.
 | **1 · CORE** | `MEMORY.md` — hand-curated identity, always loaded | free |
 | **2 · INDEX** | `INDEX.md` — one line per memory, auto-derived from frontmatter, greppable | ~free |
 | **3 · Search** | `anamnesis search "…"` — BM25 keyword ranking fused with embedding similarity (RRF): exact identifiers *and* meaning | keyword: free · semantic: a local model |
+| **↺ Prompt recall** | a hook ranks every prompt against your memories and injects the top 3 *descriptions*: push, not pull, for the memory nobody thought to search for | free (~0.1s, no model) |
 
 Plus a **live-state pointer** (`NOW.<node>.md`) injected at every session start,
 optional **fleet sync** over a git remote, and a nightly **self-audit** that
@@ -118,6 +119,9 @@ anamnesis retire old-runbook --by new-runbook   # supersede (or --archive)
 anamnesis check                    # health: INDEX coverage, fresh embeddings, search smoke test
 anamnesis maint                    # self-audit + changelog -> _maint.md
 anamnesis sync                     # two-way fleet sync (if a hub remote is set)
+anamnesis note "PR #12 open, CI pending"   # scratch ledger: survives a crash or compaction
+anamnesis note --show | --clear    # ...read it back / clear it once folded into NOW
+anamnesis miss "<what>" --query "<prompt>" --found <stem>   # log a recall miss
 anamnesis config                   # show resolved configuration
 ```
 
@@ -167,6 +171,40 @@ on a ~470-file brain. A small brain scores lower, so lower the floor there.
 The format is a plain
 directory of Markdown, so it works with any agent that can read files and shell
 out.
+
+### Adding a fleet node
+
+Each node has its own clone of one private hub and runs the same engine:
+
+```bash
+git clone <hub> ~/.anamnesis                       # your hub, e.g. a bare repo on a LAN box
+git -C ~/.anamnesis config user.name  "<node>"     # REQUIRED: with no identity every
+git -C ~/.anamnesis config user.email "<node>@fleet.lan"   # auto-commit fails silently
+# config: ANAMNESIS_NODE=<node>, ANAMNESIS_HUB_REMOTE=<hub>, and on every node
+# but one, ANAMNESIS_INDEX_NODE=<that one> (one node regenerates INDEX + embeddings)
+```
+
+Then make sure it **syncs on a schedule**, not only when a session starts. A
+backup node nobody opens otherwise drifts for weeks. A user timer works on
+systemd, and any init that imports systemd user units:
+
+```ini
+# ~/.config/systemd/user/anamnesis-sync.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "%h/projects/anamnesis/bin/anamnesis-sync; %h/projects/anamnesis/bin/anamnesis-maint --maybe"
+
+# ~/.config/systemd/user/anamnesis-sync.timer
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target
+```
+
+`systemctl --user enable --now anamnesis-sync.timer`. Once the node's first
+heartbeat lands in `.fleet/`, every node's `maint` will notice if it goes quiet.
 
 ## Dependencies
 
