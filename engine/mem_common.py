@@ -1,4 +1,4 @@
-import os, glob, hashlib, yaml
+import os, re, glob, hashlib, yaml
 
 MEMORY_DIR = os.environ.get(
     "ANAMNESIS_DIR", os.path.expanduser("~/.anamnesis")
@@ -63,6 +63,11 @@ def parse_file(path):
 
 
 ARCHIVED = ("superseded", "archived")
+LINK_RE = re.compile(r"\[\[([A-Za-z0-9_-]+)\]\]")   # [[slug]] = a file stem
+
+
+def tokens(text):
+    return re.findall(r"[a-z0-9]+", text.lower())
 
 
 def is_active(rec):

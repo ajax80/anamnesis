@@ -1,19 +1,14 @@
 import os, re, sys, math, numpy as np
 from collections import Counter
-from mem_common import MEMORY_DIR, parse_file, is_active, memory_files
+from mem_common import MEMORY_DIR, LINK_RE, parse_file, is_active, memory_files, tokens as _tokens
 from indexer import connect, from_blob, reindex, DB_PATH
 from embed import embed as default_embed
 
 RRF_K = 60
-LINK_RE = re.compile(r"\[\[([A-Za-z0-9_-]+)\]\]")
 
 
 def _terms(q):
     return [t for t in re.split(r"\s+", q.lower()) if t]
-
-
-def _tokens(text):
-    return re.findall(r"[a-z0-9]+", text.lower())
 
 
 def bm25_rank(query, docs, k1=1.5, b=0.75):

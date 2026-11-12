@@ -33,7 +33,7 @@ $ANAMNESIS_DIR/                 ← your data (private, git-tracked, yours)
 anamnesis (this repo)           ← the engine
 ├── bin/anamnesis               dispatcher: search|index|genindex|retire|check|sync|maint
 ├── engine/*.py                 format parse, embed, index, search, genindex, retire, selfcheck
-└── hooks/                      SessionStart wiring for Claude Code
+└── hooks/                      SessionStart + prompt-recall wiring for Claude Code
 ```
 
 ### Recall is tiered by cost
@@ -47,6 +47,11 @@ anamnesis (this repo)           ← the engine
    (meaning). Embeddings come from Ollama or in-process fastembed; incremental —
    only changed files (by SHA) re-embed. With no backend, search is BM25 alone.
    `--links` appends each hit's 1-hop `[[linked]]` memories.
+4. **Prompt recall** — push, not pull: a UserPromptSubmit hook BM25-ranks every
+   real prompt and injects the top three descriptions above a raw-score floor
+   (RRF scores aren't comparable across queries, raw BM25 is). It uses no embeddings,
+   so it stays fast enough to run on every prompt. It closes the gap of the memory
+   nobody knew to search for.
 
 ### Live state vs. long-term memory
 

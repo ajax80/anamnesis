@@ -137,7 +137,19 @@ printing `WARN …` / `NOTE …` lines.
 Point a SessionStart hook at [`hooks/session-start.sh`](hooks/session-start.sh)
 (see [`hooks/settings.snippet.json`](hooks/settings.snippet.json)). It prints
 your CORE, the live-state pointer, and the last maintenance report into context,
-then runs a throttled maintenance pass in the background. The format is a plain
+then runs a throttled maintenance pass in the background.
+
+Point a UserPromptSubmit hook at [`hooks/prompt-recall.sh`](hooks/prompt-recall.sh)
+too, and every prompt of four or more words is BM25-ranked against your memories.
+The top three *descriptions* (never bodies) above a score floor are injected as
+context, so a memory turns up even when nobody thought to search for it. Each
+memory is offered at most once per session, and those CORE already links are
+skipped. It needs no model and runs in about 0.1s warm, from a stat-keyed cache in
+`.index/`. Anything that goes wrong prints nothing and exits 0, so it never
+blocks a prompt. The floor (`ANAMNESIS_RECALL_FLOOR`, default 10) was calibrated
+on a ~470-file brain. A small brain scores lower, so lower the floor there.
+
+The format is a plain
 directory of Markdown, so it works with any agent that can read files and shell
 out.
 
