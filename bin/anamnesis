@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Anamnesis — plain-text, git-native long-term memory for AI agents.
-# Single entry point: search | index | genindex | sync | maint | config | help
+# Single entry point: search | index | genindex | sync | maint | note | miss | config | help
 set -uo pipefail
 
 SELF="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
@@ -29,6 +29,14 @@ case "$cmd" in
   retire)   pyrun retire.py "$@" ;;
   check)    pyrun selfcheck.py "$ANAMNESIS_NODE" ;;
   sync)     exec "$SELF/bin/anamnesis-sync" "$@" ;;
+  note)     case "${1:-}" in
+              --show)  pyrun scratch.py show "$ANAMNESIS_NODE" ;;
+              --clear) pyrun scratch.py clear "$ANAMNESIS_NODE" ;;
+              "")      echo 'usage: anamnesis note "<text>" | --show | --clear' >&2; exit 2 ;;
+              *)       pyrun scratch.py add "$ANAMNESIS_NODE" "$@" ;;
+            esac ;;
+  miss)     [ -n "${1:-}" ] || { echo 'usage: anamnesis miss "<what was missed>" [--query Q] [--found SLUG]' >&2; exit 2; }
+            pyrun misses.py log "$ANAMNESIS_NODE" "$@" ;;
   maint)    exec "$SELF/bin/anamnesis-maint" "$@" ;;
   config)   printf 'ANAMNESIS_DIR=%s\nANAMNESIS_NODE=%s\nANAMNESIS_INDEX_NODE=%s\nANAMNESIS_HUB_REMOTE=%s\nANAMNESIS_EMBED_MODEL=%s\n' \
               "$ANAMNESIS_DIR" "$ANAMNESIS_NODE" "${ANAMNESIS_INDEX_NODE:-}" "${ANAMNESIS_HUB_REMOTE:-}" "$ANAMNESIS_EMBED_MODEL" ;;
@@ -40,6 +48,8 @@ anamnesis — plain-text long-term memory for AI agents
   anamnesis index [--rebuild]            (re)embed changed memory files
   anamnesis genindex                     regenerate INDEX.md from frontmatter
   anamnesis sync [pull]                  two-way fleet sync ('pull' = fetch only)
+  anamnesis note "<text>" | --show | --clear   mid-session scratch ledger (SCRATCH.<node>.md)
+  anamnesis miss "<what>" [--query Q] [--found SLUG]   log a recall miss (maint re-checks it)
   anamnesis maint [--maybe]              nightly self-audit + changelog
   anamnesis check                        health: INDEX coverage, embeddings fresh, search smoke test, retired terms
   anamnesis retire <slug> [--by <slug>|--archive]   mark a memory superseded/archived

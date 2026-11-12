@@ -149,6 +149,21 @@ skipped. It needs no model and runs in about 0.1s warm, from a stat-keyed cache 
 blocks a prompt. The floor (`ANAMNESIS_RECALL_FLOOR`, default 10) was calibrated
 on a ~470-file brain. A small brain scores lower, so lower the floor there.
 
+### Fleet health, recall misses, scratch
+
+- **Fleet sync-health.** Each good two-way sync writes a heartbeat to the hub
+  (`.fleet/<node>`, at most every 6h). `maint` warns about any node silent for 48h,
+  and about this node's own last good sync. A node you retired: `git rm .fleet/<node>`.
+- **Miss log.** `anamnesis miss "<what>" --query "<prompt>" --found <stem>` records a
+  memory that should have come back and didn't (`_misses.md`). `maint` re-runs
+  prompt recall on each logged query and lists the ones it still misses, so every
+  miss becomes a regression test.
+- **Scratch ledger.** `anamnesis note "<text>"` appends in-flight notes to
+  `SCRATCH.<node>.md`. NOW is only rewritten at close-out, so this is what
+  survives a crash or a context compaction. The SessionStart hook prints a leftover
+  scratch; fold it into NOW at close-out, then `anamnesis note --clear`. `maint`
+  flags notes left unfolded past 24h.
+
 The format is a plain
 directory of Markdown, so it works with any agent that can read files and shell
 out.

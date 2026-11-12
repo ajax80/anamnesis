@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Prompt-time recall hook: BM25 over the memory files, top descriptions
-injected as UserPromptSubmit additionalContext. Never blocks a prompt."""
+# Prompt-time recall hook: BM25 over the memory files, top descriptions
+# injected as UserPromptSubmit additionalContext. Never blocks a prompt.
 import os, sys, json, time, tempfile, subprocess
 
 ENGINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "engine")

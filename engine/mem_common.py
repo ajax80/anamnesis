@@ -3,14 +3,14 @@ import os, re, glob, hashlib, yaml
 MEMORY_DIR = os.environ.get(
     "ANAMNESIS_DIR", os.path.expanduser("~/.anamnesis")
 )
-_EXCLUDE_EXACT = {"INDEX.md", "_maint.md"}
+_EXCLUDE_EXACT = {"INDEX.md", "_maint.md", "_misses.md"}
 
 
 def is_excluded(path):
     base = os.path.basename(path)
     if base in _EXCLUDE_EXACT or base == "MEMORY.md" or base.startswith("MEMORY.md."):
         return True
-    if base.endswith(".md") and (base.startswith("NOW.") or base.startswith("NOW-")):
+    if base.endswith(".md") and base.startswith(("NOW.", "NOW-", "SCRATCH.")):
         return True
     return False
 

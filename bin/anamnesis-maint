@@ -67,6 +67,15 @@ if [ -n "${ANAMNESIS_MAINT_EXTRA:-}" ]; then
   done < <(timeout 120 bash -c "$ANAMNESIS_MAINT_EXTRA" 2>&1)
 fi
 
+# 2a'. Fleet sync-health, recall misses, unfolded scratch: every node, not just the index node
+while IFS= read -r l; do
+  case "$l" in WARN\ *) warn+=("${l#WARN }") ;; NOTE\ *) note+=("${l#NOTE }") ;; esac
+done < <(
+  PYTHONPATH="$ENGINE" python3 "$ENGINE/fleet.py" check "$NODE" 2>&1
+  PYTHONPATH="$ENGINE" python3 "$ENGINE/misses.py" check 2>&1
+  PYTHONPATH="$ENGINE" python3 "$ENGINE/scratch.py" check "$NODE" 2>&1
+)
+
 # 2b. Supersession audit (count archived; flag dangling superseded_by targets)
 sup="$(grep -lE '^status:[[:space:]]*(superseded|archived)' *.md 2>/dev/null | wc -l)"
 [ "$sup" -gt 0 ] && note+=("${sup} superseded/archived memory file(s) — excluded from default recall (use \`anamnesis search --all\`).")
@@ -77,7 +86,8 @@ done
 
 # 3. Unwritten [[links]] (informational)
 deadlinks=()
-dl="$(grep -rhoE '\[\[[a-zA-Z0-9_-]+\]\]' *.md 2>/dev/null | sed -E 's/\[\[(.*)\]\]/\1/' | sort -u)"
+# the ledgers (SCRATCH.*, _misses.md) aren't memories: a [[todo]] there isn't one
+dl="$(grep -hoE '\[\[[a-zA-Z0-9_-]+\]\]' --exclude='SCRATCH.*' --exclude=_misses.md *.md 2>/dev/null | sed -E 's/\[\[(.*)\]\]/\1/' | sort -u)"
 for s in $dl; do [ -f "$s.md" ] || deadlinks+=("$s"); done
 if [ "${#deadlinks[@]}" -gt 0 ]; then
   deadlinks=("${deadlinks[@]:0:12}")

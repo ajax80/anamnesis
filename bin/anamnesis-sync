@@ -5,6 +5,7 @@
 set -uo pipefail
 
 SELF="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+ENGINE="$SELF/engine"
 for cfg in "${ANAMNESIS_ENV:-}" "$HOME/.config/anamnesis/anamnesis.env" "$SELF/anamnesis.env"; do
   [ -n "$cfg" ] && [ -f "$cfg" ] && . "$cfg" && break
 done
@@ -20,9 +21,18 @@ git pull --rebase --autostash -q origin "$BRANCH" 2>/dev/null || exit 0
 
 [ "${1:-}" = "pull" ] && exit 0
 
+# throttled heartbeat (.fleet/<node>) so the fleet can see this node is alive;
+# the env file's ANAMNESIS_DIR is a plain variable, so hand it over explicitly
+fleet() { ANAMNESIS_DIR="$MEM" PYTHONPATH="$ENGINE" python3 "$ENGINE/fleet.py" "$@" "$NODE" >/dev/null 2>&1; }
+fleet heartbeat
+
 if [ -n "$(git status --porcelain)" ]; then
   git add -A
   git commit -qm "sync ${NODE} $(date '+%F %T')" 2>/dev/null
 fi
 # Push whenever ahead, not only after an auto-commit: hand-made commits count too.
-[ -n "$(git log --oneline "origin/$BRANCH..HEAD" 2>/dev/null)" ] && { git push -q origin "$BRANCH" 2>/dev/null || true; }
+good=1
+[ -n "$(git status --porcelain)" ] && good=0          # the commit failed: edits stuck here
+[ -n "$(git log --oneline "origin/$BRANCH..HEAD" 2>/dev/null)" ] && { git push -q origin "$BRANCH" 2>/dev/null || good=0; }
+# the local proof of a good two-way sync; maint warns when it goes stale
+[ "$good" = 1 ] && fleet ok

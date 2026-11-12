@@ -18,6 +18,11 @@ timeout 12 "$ANAMNESIS_BIN" sync pull >/dev/null 2>&1
 printf '=== NOW (live state, read this first) ===\n'
 cat "$MEM/NOW.$NODE.md" 2>/dev/null || echo "(no NOW.$NODE.md yet — write one)"
 
+if [ -s "$MEM/SCRATCH.$NODE.md" ]; then
+  printf '\n=== SCRATCH (in-flight notes from a session that did not close out — fold into NOW) ===\n'
+  cat "$MEM/SCRATCH.$NODE.md"
+fi
+
 if [ -f "$MEM/_maint.md" ]; then
   printf '\n=== last maintenance ===\n'
   cat "$MEM/_maint.md"
